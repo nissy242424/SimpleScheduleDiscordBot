@@ -14,6 +14,10 @@
   - requirements.txtの作成
   - .env.exampleの作成
   - 環境構築手順の整備
+- データベース基盤の実装
+  - DatabaseManagerの実装（SQLite非同期操作）
+  - データモデルの実装（Schedule, Vote, ScheduleDate）
+  - RepositoryパターンによるCRUD操作の実装
 
 ## [0.1.0] - 2025-04-02
 
