@@ -5,8 +5,8 @@ import asyncio
 import discord
 from discord.ext import commands
 
-from .core.config import config
-from .core.logger import logger
+from simple_schedule_bot.core.config import config
+from simple_schedule_bot.core.logger import logger
 
 class ScheduleBot(commands.Bot):
     """Discord Schedule Bot main class"""
@@ -25,8 +25,13 @@ class ScheduleBot(commands.Bot):
     
     async def setup_hook(self):
         """Bot setup hook - called before the bot starts."""
-        # ここで後でCogsをロードする
-        pass
+        # Load command cogs
+        await self.load_extension("simple_schedule_bot.commands.ping")
+        
+        # Sync commands with Discord
+        logger.logger.info("Syncing commands...")
+        await self.tree.sync()
+        logger.logger.info("Commands synced successfully")
     
     async def on_ready(self):
         """Called when the bot is ready and connected."""
