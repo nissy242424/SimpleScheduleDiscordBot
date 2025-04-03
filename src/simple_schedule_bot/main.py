@@ -7,6 +7,7 @@ from discord.ext import commands
 
 from simple_schedule_bot.core.config import config
 from simple_schedule_bot.core.logger import logger
+from simple_schedule_bot.db.database import DatabaseManager
 
 class ScheduleBot(commands.Bot):
     """Discord Schedule Bot main class"""
@@ -25,6 +26,10 @@ class ScheduleBot(commands.Bot):
     
     async def setup_hook(self):
         """Bot setup hook - called before the bot starts."""
+        # Initialize database
+        logger.logger.info("Initializing database...")
+        self.db = await DatabaseManager.get_instance(config.DB_PATH)
+        
         # Load command cogs
         await self.load_extension("simple_schedule_bot.commands.ping")
         await self.load_extension("simple_schedule_bot.commands.schedule")
