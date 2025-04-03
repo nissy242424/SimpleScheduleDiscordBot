@@ -54,10 +54,17 @@ sequenceDiagram
 
 ### コンポーネント設計
 
-#### Command Handler
-- スラッシュコマンドの登録と処理
-- モーダル・ボタンのインタラクション処理
+#### Database Manager
+- シングルトンパターンによるインスタンス管理
+- 非同期SQLite接続の提供
+- トランザクション制御
+- マイグレーション管理
+
+#### Repository
+- CRUD操作の実装
+- クエリ最適化
 - エラーハンドリング
+- データ整合性の保証
 
 #### Schedule Service
 - スケジュール作成・取得・更新
@@ -69,11 +76,6 @@ sequenceDiagram
 - 通知条件の評価
 - メンション送信
 
-#### Database Manager
-- コネクション管理
-- マイグレーション
-- バックアップ
-
 ## データベース設計
 
 ### テーブル構造
@@ -81,14 +83,15 @@ sequenceDiagram
 #### schedules
 ```sql
 CREATE TABLE schedules (
-    id TEXT PRIMARY KEY,
-    title TEXT NOT NULL,
-    description TEXT,
-    creator_id INTEGER NOT NULL,
-    channel_id INTEGER NOT NULL,
-    status TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL,
-    reminder_sent BOOLEAN DEFAULT FALSE
+    id TEXT PRIMARY KEY,              -- UUID形式
+    title TEXT NOT NULL,              -- イベントタイトル
+    description TEXT,                 -- イベントの説明
+    creator_id INTEGER NOT NULL,      -- 作成者のDiscord ID
+    channel_id INTEGER NOT NULL,      -- 作成されたチャンネルのID
+    status TEXT NOT NULL,             -- 'active', 'confirmed', 'cancelled'
+    created_at TIMESTAMP NOT NULL,    -- 作成日時
+    confirmed_date TIMESTAMP,         -- 確定した日時
+    reminder_sent BOOLEAN DEFAULT FALSE -- リマインダー送信済みフラグ
 );
 ```
 
@@ -97,8 +100,9 @@ CREATE TABLE schedules (
 CREATE TABLE schedule_dates (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     schedule_id TEXT NOT NULL,
-    date TIMESTAMP NOT NULL,
-    FOREIGN KEY (schedule_id) REFERENCES schedules(id)
+    date TIMESTAMP NOT NULL,          -- 候補日時
+    FOREIGN KEY (schedule_id) REFERENCES schedules(id),
+    UNIQUE(schedule_id, date)         -- 同一スケジュール内での日時重複を防ぐ
 );
 ```
 
@@ -107,11 +111,12 @@ CREATE TABLE schedule_dates (
 CREATE TABLE votes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     schedule_id TEXT NOT NULL,
-    user_id INTEGER NOT NULL,
-    date TIMESTAMP NOT NULL,
-    vote_status TEXT NOT NULL,
+    user_id INTEGER NOT NULL,         -- 投票者のDiscord ID
+    date TIMESTAMP NOT NULL,          -- 投票対象の日時
+    vote_status TEXT NOT NULL,        -- '⭕', '🔺', '❌'
+    created_at TIMESTAMP NOT NULL,    -- 投票日時
     FOREIGN KEY (schedule_id) REFERENCES schedules(id),
-    UNIQUE(schedule_id, user_id, date)
+    UNIQUE(schedule_id, user_id, date) -- 1ユーザー1候補日につき1票
 );
 ```
 
@@ -123,87 +128,71 @@ CREATE INDEX idx_votes_user_id ON votes(user_id);
 CREATE INDEX idx_schedules_status ON schedules(status);
 ```
 
-## セキュリティ設計
+## データアクセスパターン
 
-### 入力バリデーション
-- タイトル: 最大100文字
-- 説明: 最大1000文字
-- 候補日時: 最大10件
-- 過去の日時は指定不可
+### 1. トランザクション管理
+- コンテキストマネージャーによるトランザクション制御
+- 例外発生時の自動ロールバック
+- 接続プールの管理
 
-### 権限管理
-- スケジュール作成: 全メンバー可能
-- スケジュール削除: 作成者のみ
-- 投票: 全メンバー可能
-- 設定変更: 管理者のみ
+### 2. リポジトリパターン
+- モデルとデータベース操作の分離
+- 集約の一貫性保証
+- ドメインロジックの隠蔽
 
-### データ保護
-- SQLインジェクション対策
-- XSS対策
-- レート制限
-
-## パフォーマンス設計
-
-### データベース最適化
-- インデックスの適切な設定
-- 定期的なVACUUM実行
-- 不要データの自動削除
-
-### キャッシング戦略
-- スケジュールデータのメモリキャッシュ
-- 投票結果の一時キャッシュ
-- コマンドクールダウン
+### 3. クエリ最適化
+- インデックスの活用
+- 結合クエリの最適化
+- N+1問題の回避
 
 ## エラーハンドリング
 
-### エラーの種類と対応
-1. ユーザー入力エラー
-   - バリデーションエラー
-   - 権限エラー
-   - 不正な操作
+### 1. データベースエラー
+- 接続エラー
+  - 再試行
+  - タイムアウト設定
+- 制約違反
+  - バリデーション
+  - エラーメッセージ
 
-2. システムエラー
-   - データベースエラー
-   - API制限エラー
-   - 接続エラー
+### 2. アプリケーションエラー
+- バリデーションエラー
+  - 入力値チェック
+  - 整合性チェック
+- ビジネスロジックエラー
+  - 状態遷移チェック
+  - 権限チェック
 
-### リカバリー戦略
-- 自動リトライ
-- エラーログ記録
-- 管理者通知
+### 3. ロギング
+- エラーレベル別ログ
+- スタックトレース記録
+- 監視メトリクス
 
-## 拡張性設計
+## パフォーマンス設計
 
-### プラグインシステム
-- カスタムコマンド追加
-- 通知方法のカスタマイズ
-- 外部サービス連携
+### 1. データベース最適化
+- インデックス活用
+- クエリ最適化
+- コネクションプール
 
-### 設定のカスタマイズ
-- リマインド間隔
-- 投票オプション
-- メッセージテンプレート
+### 2. メモリ管理
+- キャッシュ戦略
+- オブジェクトプール
+- リソース解放
 
-## 監視設計
-
-### ログ設計
-- アクセスログ
-- エラーログ
-- 操作ログ
-
-### メトリクス収集
-- コマンド使用頻度
-- エラー発生率
-- レスポンス時間
+### 3. 非同期処理
+- 非同期IO
+- タスクキュー
+- バッチ処理
 
 ## 運用設計
 
 ### バックアップ戦略
-- 定期的なデータバックアップ
-- 設定ファイルのバックアップ
+- 定期バックアップ
 - リストア手順
+- データ整合性チェック
 
 ### メンテナンス
-- 定期的なヘルスチェック
-- パフォーマンス分析
-- アップデート手順
+- 定期的なVACUUM実行
+- インデックス再構築
+- パフォーマンス監視
