@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import List, Optional, Dict
 import uuid
@@ -31,7 +31,7 @@ class Vote:
             user_id=user_id,
             date=date,
             vote_status=vote_status,
-            created_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc)
         )
 
 @dataclass
@@ -72,7 +72,7 @@ class Schedule:
             creator_id=creator_id,
             channel_id=channel_id,
             status=ScheduleStatus.ACTIVE,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             confirmed_date=None,
             reminder_sent=False,
             dates=[ScheduleDate.create(schedule_id, date) for date in dates],

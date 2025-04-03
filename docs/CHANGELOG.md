@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 ### Added
+- モデルのユニットテスト実装
+  - Scheduleモデルの完全なテストカバレッジ (100%)
+  - VoteStatusとScheduleStatusのテスト
+
 - プロジェクト構造の実装
   - srcディレクトリとパッケージ構成の作成
   - 基本設定管理（config.py）

@@ -27,6 +27,7 @@ class ScheduleBot(commands.Bot):
         """Bot setup hook - called before the bot starts."""
         # Load command cogs
         await self.load_extension("simple_schedule_bot.commands.ping")
+        await self.load_extension("simple_schedule_bot.commands.schedule")
         
         # Sync commands with Discord
         logger.logger.info("Syncing commands...")
