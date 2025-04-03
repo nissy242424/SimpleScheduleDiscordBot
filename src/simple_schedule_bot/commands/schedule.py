@@ -10,7 +10,7 @@ import re
 
 from ..core.logger import logger
 from ..db.repository import ScheduleRepository
-from ..models.schedule import Schedule, ScheduleStatus
+from ..models.schedule import Schedule, ScheduleStatus, VoteStatus
 
 class ScheduleCreateModal(discord.ui.Modal, title="スケジュール作成"):
     """Modal for creating a new schedule."""
@@ -161,10 +161,53 @@ class ScheduleCog(commands.Cog):
             modal = ScheduleCreateModal(self.repository)
             await interaction.response.send_modal(modal)
         else:
-            await interaction.response.send_message(
-                f"Action '{action}' は現在実装されていません。",
-                ephemeral=True
-            )
+            if action == "list":
+                # アクティブなスケジュールを取得
+                schedules = await self.repository.get_active_schedules()
+                
+                if not schedules:
+                    await interaction.response.send_message(
+                        "アクティブなスケジュールはありません。",
+                        ephemeral=True
+                    )
+                    return
+                
+                # Embedを作成
+                embed = discord.Embed(
+                    title="アクティブなスケジュール一覧",
+                    color=discord.Color.blue()
+                )
+                
+                for schedule in schedules:
+                    # 作成者情報を取得
+                    creator = await self.bot.fetch_user(schedule.creator_id)
+                    creator_name = creator.display_name if creator else "Unknown"
+                    
+                    # 候補日時と投票状況を文字列化
+                    date_votes = []
+                    for date in schedule.dates:
+                        vote_counts = schedule.get_vote_count(date.date)
+                        date_str = date.date.strftime('%Y-%m-%d %H:%M')
+                        vote_str = f"(⭕:{vote_counts[VoteStatus.CIRCLE]} 🔺:{vote_counts[VoteStatus.TRIANGLE]} ❌:{vote_counts[VoteStatus.CROSS]})"
+                        date_votes.append(f"・{date_str} {vote_str}")
+                    
+                    # スケジュール情報をフィールドとして追加
+                    field_value = f"**説明**: {schedule.description or '説明なし'}\n" + \
+                                f"**作成者**: {creator_name}\n\n" + \
+                                "**候補日時**:\n" + "\n".join(date_votes)
+                    
+                    embed.add_field(
+                        name=f"📅 {schedule.title}",
+                        value=field_value,
+                        inline=False
+                    )
+                
+                await interaction.response.send_message(embed=embed)
+            else:
+                await interaction.response.send_message(
+                    f"Action '{action}' は現在実装されていません。",
+                    ephemeral=True
+                )
 
 async def setup(bot: commands.Bot):
     """Set up the Schedule cog."""
