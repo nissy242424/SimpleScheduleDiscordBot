@@ -3,6 +3,17 @@
 すべての重要な変更はこのファイルに記録されます。
 
 ## [Unreleased]
+### Added
+- プロジェクト構造の実装
+  - srcディレクトリとパッケージ構成の作成
+  - 基本設定管理（config.py）
+  - ログ機能（logger.py）
+  - カスタム例外（exceptions.py）
+  - Botメインクラス（main.py）
+- 開発環境の整備
+  - requirements.txtの作成
+  - .env.exampleの作成
+  - 環境構築手順の整備
 
 ## [0.1.0] - 2025-04-02
 

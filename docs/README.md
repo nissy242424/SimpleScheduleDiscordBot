@@ -24,15 +24,35 @@ source .venv/Scripts/activate  # Windows
 pip install -r requirements.txt
 ```
 
-2. 環境変数の設定
+2. Discord Developer Portal設定
+- [Discord Developer Portal](https://discord.com/developers/applications)でアプリケーションを作成
+- Bot設定で必要なIntentsを有効化:
+  - Message Content Intent
+  - Server Members Intent
+- Botトークンの取得と保管
+
+3. 環境変数の設定
 ```bash
 cp .env.example .env
 # .envファイルを編集し、Discord Botトークンを設定
 ```
 
-3. Botの起動
+4. Botの招待設定
+- OAuth2 URL Generatorで以下の権限を設定:
+  - View Channels (チャンネルの閲覧)
+  - Send Messages (メッセージの送信)
+  - Embed Links (埋め込みリンク)
+  - Add Reactions (リアクションの追加)
+  - Read Message History (メッセージ履歴の読み取り)
+  - Mention Everyone (全員メンション)
+  - Manage Messages (メッセージの管理)
+  - Use Slash Commands (スラッシュコマンドの使用)
+  - Create Commands (コマンドの作成)
+- 生成されたURLでBotをサーバーに招待
+
+5. Botの起動
 ```bash
-python src/simple_schedule_bot/main.py
+python -m src.simple_schedule_bot.main
 ```
 
 ## 使用方法
