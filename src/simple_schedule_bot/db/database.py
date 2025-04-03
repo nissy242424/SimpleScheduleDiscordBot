@@ -100,7 +100,23 @@ class DatabaseManager:
                     raise e
 
     async def close(self):
-        """データベース接続のクローズ"""
-        if self._connection is not None:
-            await self._connection.close()
-            self._connection = None
+        """データベース接続のクリーンアップとクローズ"""
+        try:
+            if self._connection is not None:
+                # トランザクションのロールバック
+                await self._connection.rollback()
+                
+                # 接続のクローズ
+                await self._connection.close()
+                self._connection = None
+                
+                # クラス変数のクリーンアップ
+                async with self._lock:
+                    if self._instance is not None and self._instance is self:
+                        self._instance = None
+                        
+        except Exception as e:
+            # エラーをログに記録するが、例外は再送出しない
+            # シャットダウン時のエラーチェーンを防ぐため
+            import logging
+            logging.error(f"Error during database cleanup: {e}")

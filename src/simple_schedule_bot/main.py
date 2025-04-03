@@ -2,6 +2,9 @@
 Main entry point for the Discord Schedule Bot.
 """
 import asyncio
+import os
+import signal
+import sys
 import discord
 from discord.ext import commands
 
@@ -54,18 +57,107 @@ class ScheduleBot(commands.Bot):
         
         await ctx.send(f"エラーが発生しました: {error_message}")
 
-def main():
+    async def close(self):
+        """Cleanly shut down the bot and close all resources."""
+        logger.logger.info("Closing database connection...")
+        if hasattr(self, 'db'):
+            await self.db.close()
+        
+        logger.logger.info("Closing bot connection...")
+        await super().close()
+
+async def main():
     """Main entry point."""
     bot = ScheduleBot()
     
+    async def shutdown():
+        """Perform a clean shutdown."""
+        try:
+            logger.logger.info("Starting shutdown process...")
+            
+            # 1. まずWebSocket接続を終了してkeep-alive-handlerを停止
+            logger.logger.info("Closing bot connection...")
+            await bot.close()
+            
+            # 2. 残りのタスクを処理（keep-alive-handler以外）
+            loop = asyncio.get_running_loop()
+            pending = [t for t in asyncio.all_tasks(loop) 
+                      if t is not asyncio.current_task() and
+                      not t.done() and
+                      not t.cancelled()]
+            
+            if pending:
+                logger.logger.info(f"Cancelling {len(pending)} pending tasks...")
+                for task in pending:
+                    task.cancel()
+                
+                # タイムアウト付きで待機
+                try:
+                    await asyncio.wait(pending, timeout=5.0)
+                except (asyncio.CancelledError, Exception) as e:
+                    logger.log_error(e, "Task cancellation error")
+            
+            # 3. データベース接続を安全にクローズ
+            if hasattr(bot, 'db'):
+                logger.logger.info("Closing database connection...")
+                try:
+                    await bot.db.close()
+                    # データベースマネージャーのクリーンアップ
+                    DatabaseManager._instance = None
+                    bot.db = None
+                except Exception as e:
+                    logger.log_error(e, "Database shutdown error")
+            
+            # 4. ログハンドラーのクリーンアップ
+            for handler in logger.logger.handlers[:]:
+                try:
+                    logger.logger.removeHandler(handler)
+                    handler.close()
+                except Exception as e:
+                    logger.log_error(e, "Logger cleanup error")
+            
+            logger.logger.info("Shutdown completed successfully")
+            
+        except Exception as e:
+            logger.log_error(e, "Shutdown error")
+            return 1
+        return 0
+
     try:
+        # シグナルハンドラの設定
+        def signal_handler():
+            """Handle termination signals."""
+            asyncio.create_task(shutdown())
+        
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        # Windowsでのシグナルハンドリング
+        if os.name == 'nt':
+            import win32api
+            def win_handler(type):
+                signal_handler()
+                return True
+            win32api.SetConsoleCtrlHandler(win_handler, True)
+        else:
+            # Unix系OSでのシグナルハンドリング
+            for sig in (signal.SIGINT, signal.SIGTERM):
+                loop.add_signal_handler(sig, signal_handler)
+        
+        # ボットの起動
         logger.logger.info("Starting bot...")
-        asyncio.run(bot.start(config.DISCORD_TOKEN))
-    except KeyboardInterrupt:
-        logger.logger.info("Shutting down...")
+        try:
+            await bot.start(config.DISCORD_TOKEN)
+        except KeyboardInterrupt:
+            logger.logger.info("Received keyboard interrupt")
+        finally:
+            exit_code = await shutdown()
+            if exit_code != 0:
+                sys.exit(exit_code)
+    
     except Exception as e:
-        logger.log_error(e, "Bot startup")
-        raise
+        logger.log_error(e, "Bot startup error")
+        sys.exit(1)
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
