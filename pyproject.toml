@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "simple_schedule_bot"
+version = "0.1.0"
+authors = [
+  { name = "Developer" },
+]
+description = "A Discord bot for schedule management"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "discord.py>=2.3.2",
+    "python-dotenv>=1.0.0",
+    "aiosqlite>=0.19.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/simple_schedule_bot"]
